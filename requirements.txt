@@ -1,0 +1,8 @@
+pandas
+requests
+scikit-learn
+joblib
+pytz
+streamlit
+plotly
+streamlit-autorefresh
