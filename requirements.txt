@@ -1,8 +1,9 @@
-pandas
-requests
-scikit-learn
-joblib
 pytz
 streamlit
-plotly
 streamlit-autorefresh
+requests
+pandas
+numpy
+plotly
+python-telegram-bot
+joblib
