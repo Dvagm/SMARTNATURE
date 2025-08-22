@@ -7,6 +7,7 @@ import pytz
 import zipfile
 from pytz import timezone
 
+
 import streamlit as st
 from streamlit_autorefresh import st_autorefresh
 
@@ -151,7 +152,7 @@ def add_engineered_columns(df, mode_ai):
     df_copy['uv_category'] = df_copy['uvIndex'].apply(categorize_uv)
     
     # --- Pilihan mode AI ---
-    if mode_ai == "model":
+    if mode_ai == "models":
         features_map = {
             'stress': (['temperature', 'humidity', 'uvIndex', 'evapotranspiration', 'cloudCover', 'rainIntensity'], 'pred_stress'),
             'wind': (['windSpeed', 'windGust', 'temperature', 'humidity'], 'pred_wind'),
@@ -165,15 +166,15 @@ def add_engineered_columns(df, mode_ai):
             
             # Khusus untuk model curah hujan dan stress tanaman, nama filenya berbeda
             if model_name == 'rain':
-                model_path = "model_curah_hujan.pkl"
+                model_path = "models/model_curah_hujan.pkl"
             elif model_name == 'stress':
-                model_path = "model_stress_tanaman.pkl"
+                model_path = "models/model_stress_tanaman.pkl"
             elif model_name == 'wind':
-                model_path = "model_risiko_angin.pkl"
+                model_path = "models/model_risiko_angin.pkl"
             elif model_name == 'uv':
-                model_path = "model_risiko_uv.pkl"
+                model_path = "models/model_risiko_uv.pkl"
             elif model_name == 'evapo':
-                model_path = "model_evapotranspirasi.pkl"
+                model_path = "models/model_evapotranspirasi.pkl"
             
             model = try_load_model(model_path)
             
