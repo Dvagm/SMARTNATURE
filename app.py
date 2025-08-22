@@ -21,6 +21,14 @@ import plotly.io as pio
 from telegram import Bot
 import joblib
 
+
+print("Working dir:", os.getcwd())
+if os.path.exists("models"):
+    print("Isi folder models:", os.listdir("models"))
+else:
+    print("Folder models tidak ditemukan")
+
+
 # =========================
 # KONFIGURASI APLIKASI
 # =========================
