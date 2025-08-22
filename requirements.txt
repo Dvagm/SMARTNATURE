@@ -4,6 +4,7 @@ streamlit-autorefresh
 requests
 pandas
 numpy
+sklearn
 plotly
 python-telegram-bot
 joblib
