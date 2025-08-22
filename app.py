@@ -154,11 +154,45 @@ def try_load_model(path):
     except Exception:
         return None
 
+import os
+import joblib
+import numpy as np
+import pandas as pd
+import streamlit as st
+
+# Fungsi load model aman
+def try_load_model(model_path):
+    try:
+        if os.path.exists(model_path):
+            return joblib.load(model_path)
+        else:
+            return None
+    except Exception as e:
+        st.warning(f"Gagal load model dari {model_path}: {e}")
+        return None
+
+# Fungsi fallback heuristik (jika model gagal / tidak ada)
+def apply_heuristic(df, pred_col):
+    if pred_col == 'pred_stress':
+        return ((df['temperature'] > 33) | (df['humidity'] < 40) |
+                (df['uvIndex'] > 7) | (df['evapotranspiration'] > 0.4)).astype(int)
+    elif pred_col == 'pred_wind':
+        return (df['windSpeed'] > 25).astype(int)
+    elif pred_col == 'pred_uv':
+        return (df['uvIndex'] > 7).astype(int)
+    elif pred_col == 'pred_evapo':
+        return (df['evapotranspiration'] > 0.4).astype(int)
+    elif pred_col == 'pred_rain':
+        return (df['rainIntensity'] > 2).astype(int)
+    else:
+        return np.zeros(len(df), dtype=int)
+
+# Fungsi utama
 def add_engineered_columns(df, mode_ai):
     df_copy = df.copy()
     df_copy['uv_category'] = df_copy['uvIndex'].apply(categorize_uv)
 
-    # --- Pilihan mode AI ---
+    # --- Mode pakai model ML ---
     if mode_ai == "model":
         features_map = {
             'stress': (['temperature', 'humidity', 'uvIndex', 'evapotranspiration', 'cloudCover', 'rainIntensity'], 'pred_stress'),
@@ -168,84 +202,56 @@ def add_engineered_columns(df, mode_ai):
             'rain':   (['precipitationProbability', 'rainIntensity', 'humidity', 'temperature'], 'pred_rain')
         }
 
+        model_map = {
+            "rain": "models/model_curah_hujan.pkl",
+            "stress": "models/model_stress_tanaman.pkl",
+            "wind": "models/model_risiko_angin.pkl",
+            "uv": "models/model_risiko_uv.pkl",
+            "evapo": "models/model_evapotranspirasi.pkl"
+        }
+
         for model_name, (features, pred_col) in features_map.items():
-            # Default path ke folder models/
-            model_path = f"models/model_risiko_{model_name}.pkl"
-
-            # Khusus untuk nama file berbeda
-            if model_name == 'rain':
-                model_path = "models/model_curah_hujan.pkl"
-            elif model_name == 'stress':
-                model_path = "models/model_stress_tanaman.pkl"
-            elif model_name == 'wind':
-                model_path = "models/model_risiko_angin.pkl"
-            elif model_name == 'uv':
-                model_path = "models/model_risiko_uv.pkl"
-            elif model_name == 'evapo':
-                model_path = "models/model_evapotranspirasi.pkl"
-
+            model_path = model_map.get(model_name)
             model = try_load_model(model_path)
 
             if model:
                 try:
-                    # Pastikan fitur ada semua
-                    missing_features = [f for f in features if f not in df_copy.columns]
-                    if missing_features:
-                        st.warning(f"Model '{model_name}' missing features: {missing_features}. Cannot predict.")
-                        df_copy[pred_col] = 0
+                    # Cek fitur ada semua
+                    missing = [f for f in features if f not in df_copy.columns]
+                    if missing:
+                        st.warning(f"Model '{model_name}' missing features: {missing}. Menggunakan heuristik.")
+                        df_copy[pred_col] = apply_heuristic(df_copy, pred_col)
                         continue
 
-                    # Konversi kolom ke numerik
+                    # Konversi fitur ke numerik
                     for f in features:
-                        df_copy[f] = pd.to_numeric(
-                            df_copy[f], errors='coerce'
-                        ).fillna(df_copy[f].mean() if not np.isnan(df_copy[f].mean()) else 0.0)
+                        df_copy[f] = pd.to_numeric(df_copy[f], errors='coerce')
+                        if df_copy[f].isna().all():
+                            df_copy[f] = 0
+                        else:
+                            df_copy[f] = df_copy[f].fillna(df_copy[f].mean())
 
-                    # Prediksi dengan model
+                    # Prediksi pakai model
                     df_copy[pred_col] = model.predict(df_copy[features])
 
                 except Exception as e:
                     st.warning(f"Gagal memprediksi dengan model '{model_name}': {e}. Menggunakan heuristik.")
-                    # fallback heuristik
-                    if pred_col == 'pred_stress':
-                        df_copy[pred_col] = ((df_copy['temperature'] > 33) | (df_copy['humidity'] < 40) |
-                                             (df_copy['uvIndex'] > 7) | (df_copy['evapotranspiration'] > 0.4)).astype(int)
-                    elif pred_col == 'pred_wind':
-                        df_copy[pred_col] = (df_copy['windSpeed'] > 25).astype(int)
-                    elif pred_col == 'pred_uv':
-                        df_copy[pred_col] = (df_copy['uvIndex'] > 7).astype(int)
-                    elif pred_col == 'pred_evapo':
-                        df_copy[pred_col] = (df_copy['evapotranspiration'] > 0.4).astype(int)
-                    elif pred_col == 'pred_rain':
-                        df_copy[pred_col] = (df_copy['rainIntensity'] > 2).astype(int)
-
+                    df_copy[pred_col] = apply_heuristic(df_copy, pred_col)
             else:
                 st.warning(f"File model '{model_path}' tidak ditemukan. Menggunakan heuristik.")
-                # fallback heuristik
-                if pred_col == 'pred_stress':
-                    df_copy[pred_col] = ((df_copy['temperature'] > 33) | (df_copy['humidity'] < 40) |
-                                         (df_copy['uvIndex'] > 7) | (df_copy['evapotranspiration'] > 0.4)).astype(int)
-                elif pred_col == 'pred_wind':
-                    df_copy[pred_col] = (df_copy['windSpeed'] > 25).astype(int)
-                elif pred_col == 'pred_uv':
-                    df_copy[pred_col] = (df_copy['uvIndex'] > 7).astype(int)
-                elif pred_col == 'pred_evapo':
-                    df_copy[pred_col] = (df_copy['evapotranspiration'] > 0.4).astype(int)
-                elif pred_col == 'pred_rain':
-                    df_copy[pred_col] = (df_copy['rainIntensity'] > 2).astype(int)
-    
-    else: # mode_ai == "heuristik"
-        df_copy['pred_stress'] = ((df_copy['temperature'] > 33) | (df_copy['humidity'] < 40) | (df_copy['uvIndex'] > 7) | (df_copy['evapotranspiration'] > 0.4)).astype(int)
-        df_copy['pred_wind'] = (df_copy['windSpeed'] > 25).astype(int)
-        df_copy['pred_uv'] = (df_copy['uvIndex'] > 7).astype(int)
-        df_copy['pred_evapo'] = (df_copy['evapotranspiration'] > 0.4).astype(int)
-        df_copy['pred_rain'] = (df_copy['rainIntensity'] > 2).astype(int)
+                df_copy[pred_col] = apply_heuristic(df_copy, pred_col)
 
-    # Memastikan kolom prediksi bertipe numerik
+    # --- Mode heuristik murni ---
+    else:
+        for pred_col in ['pred_stress', 'pred_wind', 'pred_uv', 'pred_evapo', 'pred_rain']:
+            df_copy[pred_col] = apply_heuristic(df_copy, pred_col)
+
+    # Pastikan output numerik
     for c in ['pred_stress', 'pred_wind', 'pred_uv', 'pred_evapo', 'pred_rain']:
-        df_copy[c] = pd.to_numeric(df_copy[c], errors='coerce').fillna(0.0)
+        df_copy[c] = pd.to_numeric(df_copy[c], errors='coerce').fillna(0).astype(int)
 
     return df_copy
+
 
 def get_conclusion(df, category):
     if category == 'uv':
