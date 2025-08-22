@@ -153,27 +153,17 @@ def add_engineered_columns(df, mode_ai):
     # --- Pilihan mode AI ---
     if mode_ai == "model":
         features_map = {
-            'stress': (['temperature', 'humidity', 'uvIndex', 'evapotranspiration', 'cloudCover', 'rainIntensity'], 'pred_stress'),
-            'wind': (['windSpeed', 'windGust', 'temperature', 'humidity'], 'pred_wind'),
-            'uv': (['uvIndex', 'cloudCover', 'humidity', 'temperature'], 'pred_uv'),
-            'evapo': (['temperature', 'humidity', 'cloudCover', 'windSpeed'], 'pred_evapo'),
-            'rain': (['precipitationProbability', 'rainIntensity', 'humidity', 'temperature'], 'pred_rain')
+            'stress_tanaman': (['temperature', 'humidity', 'uvIndex', 'evapotranspiration', 'cloudCover', 'rainIntensity'], 'pred_stress'),
+            'risiko_angin': (['windSpeed', 'windGust', 'temperature', 'humidity'], 'pred_wind'),
+            'risiko_uv': (['uvIndex', 'cloudCover', 'humidity', 'temperature'], 'pred_uv'),
+            'evapotranspirasi': (['temperature', 'humidity', 'cloudCover', 'windSpeed'], 'pred_evapo'),
+            'curah_hujan': (['precipitationProbability', 'rainIntensity', 'humidity', 'temperature'], 'pred_rain')
         }
         
         for model_name, (features, pred_col) in features_map.items():
-            model_path = f"model_risiko_{model_name}.pkl"
-            
-            # Khusus untuk model curah hujan dan stress tanaman, nama filenya berbeda
-            if model_name == 'rain':
-                model_path = "model_curah_hujan.pkl"
-            elif model_name == 'stress':
-                model_path = "model_stress_tanaman.pkl"
-            elif model_name == 'wind':
-                model_path = "model_risiko_angin.pkl"
-            elif model_name == 'uv':
-                model_path = "model_risiko_uv.pkl"
-            elif model_name == 'evapo':
-                model_path = "model_evapotranspirasi.pkl"
+            # PERUBAHAN UTAMA DI SINI
+            # Mengubah path untuk menunjuk ke folder 'models'
+            model_path = f"models/model_{model_name}.pkl"
             
             model = try_load_model(model_path)
             
@@ -356,13 +346,13 @@ def create_soil_figs(df_soil):
     figs['soil_npk_bar'].add_trace(go.Bar(x=df_soil['timestamp'], y=df_soil['potassium'], name='Kalium (ppm)', marker_color='#2196F3'))
     figs['soil_npk_bar'].update_layout(barmode='group', title='🌱 Kadar NPK Tanah per Jam')
     figs['light_intensity_area'] = px.area(df_soil, x='timestamp', y='light_intensity',
-                                            title='💡 Intensitas Cahaya per Jam',
-                                            labels={'light_intensity': 'Intensitas (Lux)'},
-                                            color_discrete_sequence=[PALETTE['yellow_sun']])
+                                             title='💡 Intensitas Cahaya per Jam',
+                                             labels={'light_intensity': 'Intensitas (Lux)'},
+                                             color_discrete_sequence=[PALETTE['yellow_sun']])
     figs['soil_scatter_temp_ph'] = px.scatter(df_soil, x='soil_temperature', y='soil_ph',
-                                              color='soil_moisture', size='light_intensity',
-                                              title='🌡️🧪 Hubungan Suhu Tanah & pH (Ukuran=Cahaya, Warna=Kelembaban)',
-                                              color_continuous_scale='Viridis')
+                                             color='soil_moisture', size='light_intensity',
+                                             title='🌡️🧪 Hubungan Suhu Tanah & pH (Ukuran=Cahaya, Warna=Kelembaban)',
+                                             color_continuous_scale='Viridis')
     return figs
 
 # =========================
@@ -404,7 +394,7 @@ def create_all_figs(df):
     })
     figs['16_kpi_ringkas'] = px.bar(kpi_df, x='metric', y='value', title='📊 KPI Ringkas', color='metric', color_discrete_map={
         'Suhu (°C) Rata-rata': PALETTE['orange_sunset'],
-        'Kelembapan (%) Rata-rata': PALETTE['blue_sky'],
+        'Kelembapan (%) (%) Rata-rata': PALETTE['blue_sky'],
         'Jam UV > 7': PALETTE['yellow_sun'],
         'Total Curah Hujan (mm)': PALETTE['blue_rain']
     })
@@ -602,83 +592,79 @@ with tab_weather:
     st.plotly_chart(figs_dict['7_kecepatan_angin'], use_container_width=True)
     st.info(f"🌬️ **Analisis:** Grafik ini membedakan kecepatan angin normal dan hembusan angin (*gust*). Hembusan angin lebih berbahaya dan dapat merusak struktur tanaman. {get_conclusion(df_processed, 'wind')}")
     st.plotly_chart(figs_dict['3_uv_index_per_jam'], use_container_width=True)
-    st.info(f"🔆 **Analisis:** Indeks UV tinggi dapat menyebabkan kerusakan sel pada tanaman. Grafik ini membantu Anda mengidentifikasi jam-jam dengan risiko tertinggi. {get_conclusion(df_processed, 'uv')}")
+    st.info(f"🔆 **Analisis:** Indeks UV tinggi dapat menyebabkan kerusakan sel pada tanaman. Grafik ini membantu Anda mengidentifikasi jam-jam dengan indeks UV berbahaya untuk merencanakan tindakan perlindungan, seperti pemberian shading.")
 
 with tab_stress:
-    st.header("🌿 Prediksi Stres Tanaman")
+    st.header("🌿 Prediksi Stres Tanaman & Rekomendasi")
     st.markdown("---")
     st.plotly_chart(figs_dict['8_prediksi_stres'], use_container_width=True)
-    st.info(f"🌱 **Analisis:** Grafik ini menunjukkan prediksi tingkat stres tanaman dari model AI. Stres diukur dari kombinasi suhu tinggi, kelembaban rendah, dan paparan UV ekstrem. {get_conclusion(df_processed, 'stress')}")
-    st.plotly_chart(figs_dict['13_simulasi_ndvi'], use_container_width=True)
-    st.info("🍃 **Analisis:** Grafik simulasi NDVI (Normalized Difference Vegetation Index) ini mencerminkan perkiraan kesehatan tanaman. Nilai yang lebih tinggi menunjukkan tanaman yang lebih sehat.")
+    st.info(f"🌿 **Prediksi AI:** {get_conclusion(df_processed, 'stress')}")
+    st.markdown("---")
+    st.plotly_chart(figs_dict['12_et_vs_temp'], use_container_width=True)
+    st.info("💧 **Analisis:** Grafik ini menunjukkan hubungan antara suhu, kelembaban, dan laju evapotranspirasi. Evapotranspirasi adalah jumlah air yang menguap dari tanah dan tanaman. Laju ET yang tinggi menandakan kebutuhan air tanaman yang besar.")
+    st.markdown("---")
+    plant_select = st.selectbox("Pilih Tanaman Anda:", list(PLANT_DATA.keys()))
+    if plant_select:
+        plant_info = PLANT_DATA[plant_select]
+        st.subheader(f"Informasi & Rekomendasi untuk Tanaman {plant_info['nama'].title()}")
+        st.write(f"**Kategori:** {plant_info['kategori']}")
+        st.write(f"**Kebutuhan Air:** {plant_info['kebutuhan_air']}")
+        st.write(f"**Kebutuhan Cahaya:** {plant_info['kebutuhan_cahaya']}")
+        st.write(f"**Kondisi Ideal:** Kelembaban Tanah {plant_info['kondisi_ideal']['moisture_min']}-{plant_info['kondisi_ideal']['moisture_max']}% | pH Tanah {plant_info['kondisi_ideal']['ph_min']}-{plant_info['kondisi_ideal']['ph_max']}")
+        st.markdown(f"**Rekomendasi:** {plant_info['rekomendasi_perawatan']}")
 
 with tab_land:
-    st.header("💧 Manajemen Tanah & Air")
+    st.header("💧 Manajemen Air & Lahan")
     st.markdown("---")
     st.plotly_chart(figs_dict['6_evapotranspirasi'], use_container_width=True)
-    st.info(f"💧 **Analisis:** Evapotranspirasi (ET) mengukur penguapan air total dari tanah dan tanaman. ET tinggi menandakan tanaman membutuhkan lebih banyak air. {get_conclusion(df_processed, 'evapo')}")
+    st.info(f"💧 **Analisis:** Grafik Evapotranspirasi (ET) menunjukkan seberapa cepat air hilang dari tanah dan tanaman. ET tinggi berarti Anda perlu lebih sering menyiram. {get_conclusion(df_processed, 'evapo')}")
+    st.markdown("---")
     st.plotly_chart(figs_dict['5_curah_hujan_probabilitas'], use_container_width=True)
-    st.info(f"🌧️ **Analisis:** Grafik ini memprediksi intensitas dan kemungkinan hujan. Data ini krusial untuk mengatur jadwal irigasi dan sistem drainase. {get_conclusion(df_processed, 'rain')}")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.plotly_chart(figs_dict['15_boxplot_kelembapan'], use_container_width=True)
-        st.info("💧 **Analisis:** Boxplot ini menunjukkan distribusi kelembaban yang diprediksi dalam 24 jam ke depan.")
-    with col2:
-        st.plotly_chart(figs_dict['14_distribusi_suhu'], use_container_width=True)
-        st.info("🌡️ **Analisis:** Histogram ini menggambarkan sebaran suhu yang diprediksi. Membantu identifikasi suhu paling sering.")
+    st.info(f"🌧️ **Analisis:** Grafik ini memprediksi intensitas hujan dan probabilitasnya. Informasi ini vital untuk merencanakan jadwal irigasi dan mencegah kebanjiran atau kekeringan. {get_conclusion(df_processed, 'rain')}")
+    st.markdown("---")
+    st.plotly_chart(figs_dict['13_simulasi_ndvi'], use_container_width=True)
+    st.info("🌿 **Simulasi NDVI:** NDVI adalah indikator kesehatan tanaman. Nilai yang lebih tinggi menunjukkan tanaman yang lebih sehat dan padat. Grafik ini mensimulasikan tren NDVI sederhana berdasarkan kelembaban dan suhu.")
 
 with tab_ai:
-    st.header("🧠 Prediksi Risiko Berbasis AI")
+    st.header("🧠 Analisis & Prediksi AI")
     st.markdown("---")
-    st.info(f"Mode Prediksi AI: **{mode_ai_selection}**")
-    st.plotly_chart(figs_dict['9_prediksi_uv_scatter'], use_container_width=True)
-    st.plotly_chart(figs_dict['10_prediksi_risiko_angin'], use_container_width=True)
+    st.subheader("Prediksi Risiko Berdasarkan AI")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.plotly_chart(figs_dict['8_prediksi_stres'], use_container_width=True)
+    with col2:
+        st.plotly_chart(figs_dict['10_prediksi_risiko_angin'], use_container_width=True)
+    with col3:
+        st.plotly_chart(figs_dict['9_prediksi_uv_scatter'], use_container_width=True)
+    st.markdown("---")
+    st.subheader("Korelasi Variabel Cuaca")
     st.plotly_chart(figs_dict['11_korelasi_variabel'], use_container_width=True)
-    st.plotly_chart(figs_dict['12_et_vs_temp'], use_container_width=True)
+    st.info("📌 **Analisis:** Korelasi menunjukkan seberapa kuat hubungan antar variabel. Misalnya, korelasi positif yang kuat antara suhu dan evapotranspirasi berarti saat suhu naik, ET juga cenderung naik.")
 
 with tab_soil_data:
-    st.header(f"🌱 Data Tanah dari Sensor Arduino - {location_name}")
+    st.header("🌱 Data Tanah & Rekomendasi")
     st.markdown("---")
-    
-    # Menambahkan data tanaman di sini
-    st.subheader("Data Tanaman Sayur & Buah")
-    plant_df = pd.DataFrame.from_dict(PLANT_DATA, orient='index')
-    plant_df['Kondisi Ideal pH'] = plant_df['kondisi_ideal'].apply(lambda x: f"pH {x['ph_min']} - {x['ph_max']}")
-    plant_df['Kondisi Ideal Kelembaban'] = plant_df['kondisi_ideal'].apply(lambda x: f"{x['moisture_min']}% - {x['moisture_max']}%")
-    st.dataframe(plant_df[['nama', 'kategori', 'kebutuhan_air', 'Kondisi Ideal pH', 'Kondisi Ideal Kelembaban', 'rekomendasi_perawatan']], use_container_width=True)
-    
-    st.markdown("---")
-    
-    arduino_api_key = st.text_input("🔑 Masukkan Kode API Arduino Anda", type="password", help="Ini adalah placeholder. Pada implementasi nyata, Anda akan menghubungkan ke API perangkat Arduino Anda.")
-    
-    col_arduino_buttons = st.columns(3)
-    if col_arduino_buttons[0].button("🔄 Muat Data Arduino", key="load_arduino_data_button"):
-        if arduino_api_key:
-            st.session_state.arduino_data = generate_mock_arduino_data()
-            st.session_state.soil_data_loaded = True
-            st.success("Data Arduino berhasil dimuat (data simulasi).")
-        else:
-            st.error("Mohon masukkan Kode API Arduino untuk memuat data.")
+    st.write("Data ini adalah data dummy dari sensor tanah Arduino.")
+    if st.button("🔄 Muat Ulang Data Sensor", key="load_soil_data"):
+        st.session_state.soil_data = generate_mock_arduino_data()
+        st.session_state.soil_data_loaded = True
 
-    # Tombol simulasi
-    if col_arduino_buttons[1].button("💧 Siram Tanaman", key="siram_tanaman_button"):
-        st.success("Perintah 'Siram Tanaman' berhasil dikirim. Sensor kelembaban akan memantau kondisi tanah.")
+    if not st.session_state.get('soil_data_loaded'):
+        st.session_state.soil_data = generate_mock_arduino_data()
+        st.session_state.soil_data_loaded = True
+    
+    df_soil = st.session_state.soil_data
+    soil_figs = create_soil_figs(df_soil)
 
-    if col_arduino_buttons[2].button("🛡️ Pasang Perlindungan", key="perlindungan_tanaman_button"):
-        st.success("Perintah 'Pasang Perlindungan' berhasil dikirim. Perlindungan akan aktif sesuai kondisi.")
-
-    if st.session_state.get('soil_data_loaded'):
-        st.subheader("Tabel Data Sensor Tanah")
-        st.dataframe(st.session_state.arduino_data, use_container_width=True)
-        
-        st.subheader("Rekomendasi Berdasarkan Data Tanah")
-        st.info(get_soil_recommendations(st.session_state.arduino_data))
-
-        st.subheader("Visualisasi Data Tanah")
-        soil_figs = create_soil_figs(st.session_state.arduino_data)
+    col1_soil, col2_soil = st.columns(2)
+    with col1_soil:
         st.plotly_chart(soil_figs['soil_moisture_line'], use_container_width=True)
         st.plotly_chart(soil_figs['soil_temperature_line'], use_container_width=True)
+    with col2_soil:
         st.plotly_chart(soil_figs['soil_ph_line'], use_container_width=True)
-        st.plotly_chart(soil_figs['soil_npk_bar'], use_container_width=True)
         st.plotly_chart(soil_figs['light_intensity_area'], use_container_width=True)
-        st.plotly_chart(soil_figs['soil_scatter_temp_ph'], use_container_width=True)
+    st.plotly_chart(soil_figs['soil_npk_bar'], use_container_width=True)
+    st.plotly_chart(soil_figs['soil_scatter_temp_ph'], use_container_width=True)
+
+    st.subheader("Rekomendasi Berdasarkan Data Sensor Tanah")
+    st.info(get_soil_recommendations(df_soil))
